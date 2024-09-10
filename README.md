@@ -14,10 +14,16 @@ Here are the librairies dans board manager needed to compile the project. Note t
 - [esp32 (Espressif Systems)](https://github.com/espressif/arduino-esp32) **version 2.0.15**
 
 ## Compile options
-You can comment/uncomment following line in `IronManArc.ino` to specify if your Arc reactor uses standard or WS2812 LEDs for middle part.
-```cpp
-#define USE_BASIC_LEDS
-```
+You can comment/uncomment following line in `IronManArc.ino` to :
+- Specify if your Arc reactor uses standard or WS2812 LEDs for middle part.
+   ```cpp
+   #define USE_BASIC_LEDS
+   ```
+- Use 12 hours format instead of 24 hours
+   ```cpp
+   #define USE_12_HOURS_FORMAT
+   ```
+
 
 ## Compile/Upload
 

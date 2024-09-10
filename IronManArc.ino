@@ -9,7 +9,6 @@
 #include "StartupLogo.h"
 #include "NTPClient.h" // https://github.com/arduino-libraries/NTPClient
 #include <WiFi.h>
-//#include "esp_wpa2.h" //wpa2 library for connections to Enterprise networks
 
 // Arc Configuration
 #include "ArcConfigMenu.h"
@@ -19,6 +18,9 @@
 // Comment following line if you want to use enhanced version with WS2812 RGB LEDS
 // for Arc middle light
 //#define USE_BASIC_LEDS
+
+// Uncomment the following if you want to use clock with 12h format instead of 24h
+//#define USE_12_HOURS_FORMAT
 
 //////////////////////
 
@@ -269,6 +271,16 @@ void loop()
 
 }
 
+// Returns hour in correct range (12h or 24h)
+int get12Or24Hour(int hour)
+{
+#ifdef USE_12_HOURS_FORMAT
+  int modResult = hour % 12;
+  return (modResult == 0)? 12: modResult;
+#else
+  return hour;
+#endif
+}
 
 // Update clock display on OLED
 // Returns true|false to tell if it's a new hour
@@ -297,7 +309,7 @@ bool updateOLEDClockDisplay()
     }
   }
   // defining string to display
-  sprintf(timeStr, "%.2d%s%.2d", hour(currentTime), ((colonDisplayed) ? ":" : " "), minute(currentTime));
+  sprintf(timeStr, "%.2d%s%.2d", get12Or24Hour(hour(currentTime)), ((colonDisplayed) ? ":" : " "), minute(currentTime));
 
   // Displaying time
   display.clearDisplay();
