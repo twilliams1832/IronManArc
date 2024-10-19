@@ -9,6 +9,8 @@
 #include "StartupLogo.h"
 #include "NTPClient.h" // https://github.com/arduino-libraries/NTPClient
 #include <WiFi.h>
+#include "Animations.h"
+#include "Arduino.h"
 
 // Arc Configuration
 #include "ArcConfigMenu.h"
@@ -20,7 +22,7 @@
 //#define USE_BASIC_LEDS
 
 // Uncomment the following if you want to use clock with 12h format instead of 24h
-//#define USE_12_HOURS_FORMAT
+#define USE_12_HOURS_FORMAT
 
 //////////////////////
 
@@ -37,6 +39,12 @@
 // When setting up the NeoPixel library, we tell it how many pixels,
 Adafruit_NeoPixel ledRing(LED_RING_NB_LEDS, LED_RING_PIN, NEO_GRB + NEO_KHZ800);
 
+// Animations Object
+Animations animations(ledRing);
+
+// Delegates for tasks
+void updateOledTask(void *parameter);
+void playAnimationTask(void *parameter);
 
 // if we have to use BASIC BLUE LEDs
 #ifdef USE_BASIC_LEDS
@@ -88,11 +96,16 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #define DIGIT_WIDTH 29
 #define COLON_WIDTH 12
 
+// Animation constants
+#define ANIMATION_DELAY 10000
+#define BREATHE_ANIMATION_DELAY 20
+
 int previousSeconds;
 int touchDuration;
 bool colonDisplayed;
 bool newHourFlashDone;
 bool togglingFont;
+unsigned long lastAnimationTime = 0;
 
 // Configuration menu
 ArcConfigMenu configMenu;
@@ -206,7 +219,7 @@ void setup()
       #endif // ---
 
       // Touch to toggle font
-      pinMode(TOUCH_SENSOR_PIN, INPUT);
+      pinMode(TOUCH_SENSOR_PIN, INPUT);  
     }
     else
     {
@@ -218,10 +231,8 @@ void setup()
 }
 
 void loop() 
-{
-  bool isNewHour;
-  
-  short actionToDo = configMenu.handleInput(&WiFi);
+{ 
+  short retCode = configMenu.handleInput(&WiFi);
 
   // If wifi is connected
   if(WiFi.status() == WL_CONNECTED) 
@@ -231,44 +242,12 @@ void loop()
 
     ledNormalLight();
 
-    isNewHour = updateOLEDClockDisplay();
+    updateUI();
 
-    // Animation every hour
-    if(isNewHour && !newHourFlashDone)
-    {
-      newHourFlashDone = true;
-      ledRingFlashCuckoo();
-    }
-    if(!isNewHour && newHourFlashDone)
-    {
-      newHourFlashDone = false;
-    }
-
-    // If toggle font has been requested and we're not currently toggling font..
-    if(digitalRead(TOUCH_SENSOR_PIN)==HIGH && !togglingFont)
-    {
-      // If touch sensor is touched for CHANGE_FONT_TOUCH_TIME_MS time
-      if(touchDuration >= CHANGE_FONT_TOUCH_TIME_MS)
-      {
-        togglingFont = true;
-        configMenu.toggleFont();
-        touchDuration = 0;
-      }
-      else // Not touch long enough
-      {
-        touchDuration += LOOP_DELAY_MS;
-      }
-    }
-    // toggle font touch sensor has been released
-    if(digitalRead(TOUCH_SENSOR_PIN)==LOW)
-    {
-      togglingFont = false;
-      touchDuration = 0;
-    }
+    checkForFontToggle();
 
     delay(LOOP_DELAY_MS);
   }
-
 }
 
 // Returns hour in correct range (12h or 24h)
@@ -437,5 +416,55 @@ void ledRingFlashCuckoo()
   }
   // Display normal brightness again
   ledNormalLight();
+}
+
+void updateUI()
+{
+  updateClockDisplay();
+  playAnimation();
+}
+
+void updateClockDisplay() {
+    bool isNewHour = updateOLEDClockDisplay(); // Check if it's a new hour
+    if (isNewHour && !newHourFlashDone) {
+        newHourFlashDone = true;
+        ledRingFlashCuckoo(); // Play the cuckoo animation
+    }
+    if (!isNewHour && newHourFlashDone) {
+        newHourFlashDone = false;
+    }
+}
+
+void playAnimation() {
+  if (millis() - lastAnimationTime >= ANIMATION_DELAY) {
+    ledRingFlashCuckoo();
+    animations.spinColorWheel(10, 25); // Spin the color wheel 10 times at 50ms per frame
+    animations.breatheAnimation(20, ledRing.Color(LED_RING_RED, LED_RING_GREEN, LED_RING_BLUE));
+    lastAnimationTime = millis();
+  }
+}
+
+void checkForFontToggle() {
+  // If toggle font has been requested and we're not currently toggling font..
+    if(digitalRead(TOUCH_SENSOR_PIN)==HIGH && !togglingFont)
+    {
+      // If touch sensor is touched for CHANGE_FONT_TOUCH_TIME_MS time
+      if(touchDuration >= CHANGE_FONT_TOUCH_TIME_MS)
+      {
+        togglingFont = true;
+        configMenu.toggleFont();
+        touchDuration = 0;
+      }
+      else // Not touch long enough
+      {
+        touchDuration += LOOP_DELAY_MS;
+      }
+    }
+    // toggle font touch sensor has been released
+    if(digitalRead(TOUCH_SENSOR_PIN)==LOW)
+    {
+      togglingFont = false;
+      touchDuration = 0;
+    }
 }
 
